@@ -1,7 +1,9 @@
+/* eslint-disable quotes */
 // dotenv loads parameters (port and database config) from .env
 require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
+const { body, validationResult } = require("express-validator");
 const connection = require("./db");
 
 const app = express();
@@ -25,21 +27,35 @@ app.get("/api/users", (req, res) => {
   });
 });
 
-app.post("/api/users", (req, res) => {
-  // send an SQL query to get all users
-  connection.query("INSERT INTO user SET ?", req.body, (err, results) => {
-    if (err) {
-      // If an error has occurred, then the client is informed of the error
-      res.status(500).json({
-        error: err.message,
-        sql: err.sql,
-      });
-    } else {
-      // If everything went well, we send the result of the SQL query as JSON
-      res.json(results);
+app.post(
+  "/api/users",
+  // username must be an email
+  body("email").isEmail(),
+  // password must be at least 5 chars long
+  body("password").isLength({ min: 8 }),
+  (req, res) => {
+    // Finds the validation errors in this request and wraps them in an object with handy functions
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
-  });
-});
+
+    // send an SQL query to get all users
+    connection.query("INSERT INTO user SET ?", req.body, (err, results) => {
+      if (err) {
+        // If an error has occurred, then the client is informed of the error
+        res.status(500).json({
+          error: err.message,
+          sql: err.sql,
+        });
+      } else {
+        // If everything went well, we send the result of the SQL query as JSON
+        res.json(results);
+      }
+    });
+    // eslint-disable-next-line comma-dangle
+  }
+);
 
 app.listen(process.env.PORT, (err) => {
   if (err) {
